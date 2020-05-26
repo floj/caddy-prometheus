@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"bufio"
 	"net"
 	"net/http"
 	"strconv"
@@ -99,6 +100,35 @@ func isIPv6(addr string) bool {
 type timedResponseWriter struct {
 	firstWrite time.Time
 	http.ResponseWriter
+}
+
+func (w *timedResponseWriter) CloseNotify() <-chan bool {
+	if cn, ok := w.ResponseWriter.(http.CloseNotifier); ok {
+		return cn.CloseNotify()
+	}
+	panic(httpserver.NonCloseNotifierError{Underlying: w.ResponseWriter})
+}
+
+func (w *timedResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if cn, ok := w.ResponseWriter.(http.Hijacker); ok {
+		return cn.Hijack()
+	}
+	panic(httpserver.NonHijackerError{Underlying: w.ResponseWriter})
+}
+
+func (w *timedResponseWriter) Flush() {
+	if cn, ok := w.ResponseWriter.(http.Flusher); ok {
+		cn.Flush()
+		return
+	}
+	panic(httpserver.NonFlusherError{Underlying: w.ResponseWriter})
+}
+
+func (w *timedResponseWriter) Push(target string, opts *http.PushOptions) error {
+	if cn, ok := w.ResponseWriter.(http.Pusher); ok {
+		return cn.Push(target, opts)
+	}
+	panic(httpserver.NonFlusherError{Underlying: w.ResponseWriter})
 }
 
 func (w *timedResponseWriter) didWrite() {
